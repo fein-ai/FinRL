@@ -1,10 +1,11 @@
 import attr
-import datetime
+
 import threading
 import time
 import logbook
 
 # import alpaca_trade_api as tradeapi
+from datetime import datetime
 import gym
 import numpy as np
 import pandas as pd
