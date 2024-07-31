@@ -15,20 +15,16 @@ import logbook
 
 class AlpacaProcessor:
     def __init__(self, API_KEY=None, API_SECRET=None, API_BASE_URL=None, api=None):
+         
         try:
+            self.tz = "America/New_York"
             self.logger = logbook.Logger(type(self).__name__)
-            if api is None:
-                try:
-                    self.api = tradeapi.REST(API_KEY, API_SECRET, API_BASE_URL, "v2")
-                    
-                except BaseException:
-                    raise ValueError("Wrong Account Info!")
-                except Exception as e:
-                    self.logger.error(f"Error initializing Alpaca API: {e}")
-            else:
-                self.api = api
-        except Exception as e:
-            self.logger.error(str(e))
+            self.api = tradeapi.REST(API_KEY, API_SECRET, API_BASE_URL, "v2")
+                
+        except BaseException:
+            raise ValueError("Wrong Account Info!")
+        except (tradeapi.rest.APIError, ValueError) as e:
+            self.logger.error(f"Error initializing Alpaca API: {e}")
         
 
     def _fetch_data_for_ticker(self, ticker, start_date, end_date, time_interval):
@@ -60,9 +56,9 @@ class AlpacaProcessor:
         self.end = end_date
         self.time_interval = time_interval
 
-        NY = "America/New_York"
-        start_date = pd.Timestamp(start_date + " 09:30:00", tz=NY)
-        end_date = pd.Timestamp(end_date + " 15:59:00", tz=NY)
+        
+        start_date = pd.Timestamp(start_date + " 09:30:00", tz=self.tz)
+        end_date = pd.Timestamp(end_date + " 15:59:00", tz=self.tz)
 
         # Use ThreadPoolExecutor to fetch data for multiple tickers concurrently
         with ThreadPoolExecutor(max_workers=10) as executor:
@@ -82,7 +78,7 @@ class AlpacaProcessor:
         data_df = pd.concat(data_list, axis=0)
 
         # Convert the timezone
-        data_df = data_df.tz_convert(NY)
+        data_df = data_df.tz_convert(self.tz)
 
         # If time_interval is less than a day, filter out the times outside of NYSE trading hours
         if pd.Timedelta(time_interval) < pd.Timedelta(days=1):
@@ -169,9 +165,8 @@ class AlpacaProcessor:
         self.logger.info("produce full timestamp index")
         times = []
         for day in trading_days:
-            NY = "America/New_York"
-            current_time = pd.Timestamp(day + " 09:30:00").tz_localize(NY)
-            for i in range(390):
+            current_time = pd.Timestamp(day + " 09:30:00").tz_localize( self.tz)
+            for _i in range(390):
                 times.append(current_time)
                 current_time += pd.Timedelta(minutes=1)
 
