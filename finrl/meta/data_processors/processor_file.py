@@ -43,8 +43,7 @@ class FileProcessor(AbstractProcessor):
                 ))
 
         combined_df = pd.concat(dfs)
-        print ( combined_df.dtypes)
-        return combined_df;
+        return combined_df
 
     def clean_data(self, df):
         self.logger.info("Data cleaning started")
