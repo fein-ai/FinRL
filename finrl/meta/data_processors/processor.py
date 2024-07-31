@@ -31,21 +31,16 @@ class AbstractProcessor(ABC):
     ):
         self.logger.info("Started adding Indicators")
 
-        print ( df.dtypes)
-        self.logger.info ( df["timestamp"])
         # Store the original data type of the 'timestamp' column
         original_timestamp_dtype = df["timestamp"].dtype
-        self.logger.info ( 'hihihi')
-
+        
         # Convert df to stock data format just once
         stock = Sdf.retype(df)
         unique_ticker = stock.tic.unique()
-        self.logger.info ( f"unique_ticker: {unique_ticker}")
-
+        
         # Convert timestamp to a consistent datatype (timezone-naive) before entering the loop
         df["timestamp"] = df["timestamp"].dt.tz_convert(None)
-        self.logger.info ( f"after convert")
-
+        
         # Create a dictionary to store the intermediate results
         indicator_data = {}
         
