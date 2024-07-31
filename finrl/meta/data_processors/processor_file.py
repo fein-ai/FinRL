@@ -15,7 +15,7 @@ class FileProcessor(AbstractProcessor):
             self.tz = "America/New_York"
             self.logger = logbook.Logger(self.__class__.__name__)
             self.directory_path = directory_path
-        except Exception as e:
+        except (OSError, ValueError) as e:
             self.logger.error(e)
 
 
