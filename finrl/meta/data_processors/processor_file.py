@@ -65,7 +65,7 @@ class FileProcessor(AbstractProcessor):
         for day in trading_days:
             
             current_time = pd.Timestamp(day + " 09:30:00").tz_localize( self.tz)
-            for i in range(390):
+            for _i in range(390):
                 times.append(current_time)
                 current_time += pd.Timedelta(minutes=1)
 
