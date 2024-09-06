@@ -200,47 +200,57 @@ class PaperTrader:
                 tzinfo=datetime.timezone.utc
             ).timestamp()
 
-            
-            
-            currTime = clock.timestamp.replace(tzinfo=datetime.timezone.utc).timestamp()
-            self.timeToClose = closingTime - currTime
-            if self.timeToClose < (60 * 2):
-                # Close all positions when 2 minutes til market close.  Any less and it will be in danger of not closing positions in time.
-
-                self.logger.info("Market closing soon.  Closing positions.")
-
-                threads = []
-                positions = self.broker.list_positions()
-                for position in positions:
-                    if position.side == "long":
-                        orderSide = "sell"
-                    else:
-                        orderSide = "buy"
-                    qty = abs(int(float(position.qty)))
-                    respSO = []
-                    tSubmitOrder = threading.Thread(
-                        target=self.submitOrder(qty, position.symbol, orderSide, respSO)
-                    )
-                    tSubmitOrder.start()
-                    threads.append(tSubmitOrder)  # record thread for joining later
-
-                for x in threads:  #  wait for all threads to complete
-                    x.join()
-
-                # Run script again after market close for next trading day.
-                self.logger.info("Sleeping until market close (15 minutes).")
-                time.sleep(60 * 15)
-
+            self.trade()
+            if not isinstance(self.broker.get_account().last_equity, float):
+                last_equity = float(self.broker.get_account().last_equity)
             else:
-                self.trade()
-                if not isinstance(self.broker.get_account().last_equity, float):
-                    last_equity = float(self.broker.get_account().last_equity)
-                else:
-                    last_equity = self.broker.get_account().last_equity
+                last_equity = self.broker.get_account().last_equity
 
-                cur_time = time.time()
-                self.equities.append([cur_time, last_equity])
-                time.sleep(self.time_interval)
+            cur_time = time.time()
+            self.equities.append([cur_time, last_equity])
+            time.sleep(self.time_interval)
+            
+            
+            
+            # currTime = clock.timestamp.replace(tzinfo=datetime.timezone.utc).timestamp()
+            # self.timeToClose = closingTime - currTime
+            # if self.timeToClose < (60 * 2):
+            #     # Close all positions when 2 minutes til market close.  Any less and it will be in danger of not closing positions in time.
+
+            #     self.logger.info("Market closing soon.  Closing positions.")
+
+            #     threads = []
+            #     positions = self.broker.list_positions()
+            #     for position in positions:
+            #         if position.side == "long":
+            #             orderSide = "sell"
+            #         else:
+            #             orderSide = "buy"
+            #         qty = abs(int(float(position.qty)))
+            #         respSO = []
+            #         tSubmitOrder = threading.Thread(
+            #             target=self.submitOrder(qty, position.symbol, orderSide, respSO)
+            #         )
+            #         tSubmitOrder.start()
+            #         threads.append(tSubmitOrder)  # record thread for joining later
+
+            #     for x in threads:  #  wait for all threads to complete
+            #         x.join()
+
+            #     # Run script again after market close for next trading day.
+            #     self.logger.info("Sleeping until market close (15 minutes).")
+            #     time.sleep(60 * 15)
+
+            # else:
+            #     self.trade()
+            #     if not isinstance(self.broker.get_account().last_equity, float):
+            #         last_equity = float(self.broker.get_account().last_equity)
+            #     else:
+            #         last_equity = self.broker.get_account().last_equity
+
+            #     cur_time = time.time()
+            #     self.equities.append([cur_time, last_equity])
+            #     time.sleep(self.time_interval)
 
     def awaitMarketOpen(self):
         isOpen = self.broker.get_clock().is_open
