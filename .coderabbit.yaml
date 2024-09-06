@@ -23,9 +23,12 @@ reviews:
             - "DO NOT MERGE"
         drafts: false
         base_branches:
-            - "develop"
-            - "feat/*"
-            - "bug/*"
-            - "fix/*"
+            - master
+            - dev
+            - stg
+            - prd
+            - feat/*
+            - bug/*
+            - fix/*
 chat:
     auto_reply: true
