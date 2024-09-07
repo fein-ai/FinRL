@@ -7,7 +7,7 @@ import os
 import time
 from copy import deepcopy
 
-import gym
+import gymnasium as gym
 import numpy as np
 import numpy.random as rd
 import pandas as pd

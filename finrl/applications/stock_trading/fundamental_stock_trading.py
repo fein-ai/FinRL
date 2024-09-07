@@ -326,7 +326,7 @@ def main():
     print(len(train_data))
     print(len(trade_data))
 
-    import gym
+    import gymnasium as gym
     import matplotlib
     import matplotlib.pyplot as plt
     import numpy as np
