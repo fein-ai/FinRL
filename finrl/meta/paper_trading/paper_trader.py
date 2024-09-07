@@ -446,7 +446,7 @@ class PaperTrader:
 
     
 
-class StockEnvEmpty(gymnasium.Env):
+class StockEnvEmpty(gym.Env):
     # Empty Env used for loading rllib agent
     def __init__(self, config):
         state_dim = config["state_dim"]
