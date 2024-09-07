@@ -8,7 +8,7 @@ import time
 import logbook
 
 import alpaca_trade_api as tradeapi
-import gym
+import gymnasium as gym
 import numpy as np
 import pandas as pd
 import torch
@@ -446,7 +446,7 @@ class PaperTrader:
 
     
 
-class StockEnvEmpty(gym.Env):
+class StockEnvEmpty(gymnasium.Env):
     # Empty Env used for loading rllib agent
     def __init__(self, config):
         state_dim = config["state_dim"]
