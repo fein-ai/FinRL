@@ -10,7 +10,7 @@ permissions:
   contents: read
   
 env:
-  AWS_REGION: us-east-1
+  AWS_REGION: ${{ secrets.AWS_REGION }}
   REGISTRY_IMAGE: grantchiu/fein-base
   IMAGE_TAG: latest
 
