@@ -6,7 +6,7 @@ from alpaca_trade_api.rest import TimeFrame
 import numpy as np
 
 import datetime
-import gym
+import gymnasium as gym
 import threading
 import time
 import logbook

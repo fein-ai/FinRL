@@ -4,10 +4,10 @@ import random
 import time
 from copy import deepcopy
 
-import gym
 import matplotlib
 import numpy as np
 import pandas as pd
+import gymnasium as gym
 from gym import spaces
 from stable_baselines3.common import logger
 from stable_baselines3.common.vec_env import DummyVecEnv

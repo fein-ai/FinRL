@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-import gym
+import gymnasium as gym
 import numpy as np
 from numpy import random as rd
 
