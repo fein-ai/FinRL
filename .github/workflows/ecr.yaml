@@ -3,8 +3,7 @@ name: Build and Push Docker Image to ECR
 on:
   push:
     branches:
-      - master
-      - main
+      - null
 
 permissions:
   id-token: write
