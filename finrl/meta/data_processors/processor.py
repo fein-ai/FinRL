@@ -30,7 +30,6 @@ class AbstractProcessor(ABC):
         ],
     ):
         self.logger.info("Started adding Indicators")
-
         # Store the original data type of the 'timestamp' column
         original_timestamp_dtype = df["timestamp"].dtype
         
@@ -43,6 +42,8 @@ class AbstractProcessor(ABC):
         
         # Create a dictionary to store the intermediate results
         indicator_data = {}
+
+        df.drop(columns=tech_indicator_list + ['turbulence'], inplace=True)
         
         with ProcessPoolExecutor() as executor:
             for indicator in tech_indicator_list:
@@ -124,12 +125,9 @@ class AbstractProcessor(ABC):
             else:
                 turbulence_temp = 0
             turbulence_index.append(turbulence_temp)
-
         turbulence_index = pd.DataFrame(
             {"timestamp": df_price_pivot.index, "turbulence": turbulence_index}
         )
-
-        # self.logger.info("turbulence_index\n", turbulence_index)
 
         return turbulence_index
 
@@ -170,17 +168,9 @@ class AbstractProcessor(ABC):
     
     @staticmethod
     def clean_individual_ticker(args):
-        tic, df, times = args
-        tmp_df = pd.DataFrame(index=times)
+        tic, df = args
         tic_df = df[df.tic == tic].set_index("timestamp")
-
-        # Step 1: Merging dataframes to avoid loop
-        tmp_df = tmp_df.merge(
-            tic_df[["open", "high", "low", "close", "volume"]],
-            left_index=True,
-            right_index=True,
-            how="left",
-        )
+        tmp_df = df
 
         # Step 2: Handling NaN values efficiently
         if pd.isna(tmp_df.iloc[0]["close"]):
@@ -206,7 +196,7 @@ class AbstractProcessor(ABC):
         # tmp_df.loc[tmp_df.index.time == pd.Timestamp("09:30:00").time(), 'volume'] = 0.0
 
         # Step 3: Data type conversion
-        tmp_df = tmp_df.astype(float)
+        # tmp_df = tmp_df.astype(float)
 
         tmp_df["tic"] = tic
 
