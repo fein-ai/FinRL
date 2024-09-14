@@ -55,36 +55,22 @@ class FileProcessor(AbstractProcessor):
         filter_mask = grouped.transform("count")["tic"] >= n_tickers
         df = df[filter_mask]
 
-        # ... (generating 'times' series, same as in your existing code)
-
-        trading_days = self.get_trading_days(start=self.start, end=self.end)
-
-        # produce full timestamp index
-        self.logger.info("produce full timestamp index")
-        times = []
-        for day in trading_days:
-            
-            current_time = pd.Timestamp(day + " 09:30:00").tz_localize( self.tz)
-            for _i in range(390):
-                times.append(current_time)
-                current_time += pd.Timedelta(minutes=1)
 
         self.logger.info("Start processing tickers")
 
         future_results = []
         for tic in tic_list:
-            result = self.clean_individual_ticker((tic, df.copy(), times))
+            result = self.clean_individual_ticker((tic, df.copy()))
             future_results.append(result)
 
         self.logger.info("ticker list complete")
 
         self.logger.info("Start concat and rename")
         new_df = pd.concat(future_results)
-        new_df = new_df.reset_index()
-        new_df = new_df.rename(columns={"index": "timestamp"})
+        # new_df = new_df.reset_index()
+        # new_df = new_df.rename(columns={"index": "timestamp"})
 
         self.logger.info("Data clean finished!")
-
         return new_df
     
     def add_vix(self, data: pd.DataFrame) -> pd.DataFrame:
