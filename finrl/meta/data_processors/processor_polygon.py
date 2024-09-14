@@ -49,7 +49,6 @@ class PolygonProcessor:
             aggs.append(a) 
 
         all_data = pd.DataFrame( aggs)
-        print ( all_data)
         
         all_data['timestamp'] = pd.to_datetime( all_data['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert( self.tz)
         all_data['tic'] = ticker
@@ -138,8 +137,6 @@ class PolygonProcessor:
 
         
         self.logger.info("Start processing tickers")
-        print ( df)
-        print ( '+++++++++++++')
         
         future_results = []
         for tic in tic_list:
@@ -185,7 +182,6 @@ class PolygonProcessor:
 
         self.logger.info("Running Loop")
         for indicator in tech_indicator_list:
-            self.logger.info ( f"Adding indicator: {indicator}")
             indicator_dfs = []
             for tic in unique_ticker:
                 tic_data = stock[stock.tic == tic]
@@ -204,7 +200,7 @@ class PolygonProcessor:
 
             # Concatenate all intermediate dataframes at once
             indicator_df = pd.concat(indicator_dfs, ignore_index=True)
-            print ( indicator_dfs)
+            
             # Merge the indicator data frame
             df = df.merge(
                 indicator_df[["tic", "date", indicator]],
@@ -226,7 +222,6 @@ class PolygonProcessor:
 
         self.logger.info("Finished adding Indicators")
 
-        print ( df)
         return df
 
 
