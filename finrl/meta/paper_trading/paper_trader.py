@@ -43,7 +43,7 @@ class PaperTrader:
         # load agent
         self.drl_lib = drl_lib
         self.logger = logbook.Logger(self.__class__.__name__)
-        self.logger.info ( 'init paper trading')
+        self.logger.info ( f"ticker_list: {ticker_list} time_interval: {time_interval} drl_lib: {drl_lib} agent: {agent} cwd: {cwd} net_dim: {net_dim} state_dim: {state_dim} action_dim: {action_dim}")
 
         if agent == "ppo":
             if drl_lib == "elegantrl":
@@ -134,24 +134,7 @@ class PaperTrader:
         #     )
 
         # read trading time interval
-        if time_interval == "1s":
-            self.time_interval = 1
-        elif time_interval == "5s":
-            self.time_interval = 5
-        elif time_interval == "1Min":
-            self.time_interval = 60
-        elif time_interval == "5Min":
-            self.time_interval = 60 * 5
-        elif time_interval == "15Min":
-            self.time_interval = 60 * 15
-        elif time_interval == "1Hour":
-            self.time_interval = 60 * 1
-        elif time_interval == "3Hour":
-            self.time_interval = 60 * 3
-        elif time_interval == "6Hour":
-            self.time_interval = 60 * 6
-        else:
-            raise ValueError("Time interval input is NOT supported yet.")
+        self.time_interval = time_interval
 
         # read trading settings
         self.tech_indicator_list = tech_indicator_list
@@ -170,6 +153,20 @@ class PaperTrader:
         self.stockUniverse = ticker_list
         self.turbulence_bool = 0
         self.equities = []
+
+    def _time_interval_to_sleep(self):
+        if self.time_interval == "1Min":
+            return 60
+        elif self.time_interval == "5Min":
+            return 60 * 5
+        elif self.time_interval == "15Min":
+            return 60 * 15
+        elif self.time_interval == "1H":
+            return 60 * 60
+        elif self.time_interval == "1D":
+            return 60 * 60 * 24
+        else:
+            raise ValueError("The time interval is NOT supported yet. Please check your input.")
 
     def test_latency(self, test_times=10):
         total_time = 0
@@ -208,7 +205,7 @@ class PaperTrader:
 
             cur_time = time.time()
             self.equities.append([cur_time, last_equity])
-            time.sleep(self.time_interval)
+            time.sleep(self._time_interval_to_sleep())
             
             
             
@@ -362,7 +359,7 @@ class PaperTrader:
         self.logger.info ( 'get state')
         price, tech, turbulence = self.broker.fetch_latest_data(
             ticker_list=self.stockUniverse,
-            time_interval="1Min",  # "1Min", "5Min", "15Min", "1H", "1D
+            time_interval=self.time_interval,  # "1Min", "5Min", "15Min", "1H", "1D
             tech_indicator_list=self.tech_indicator_list,
         )
         turbulence_bool = 1 if turbulence >= self.turbulence_thresh else 0
