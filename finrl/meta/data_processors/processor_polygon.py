@@ -23,7 +23,7 @@ class PolygonProcessor:
         self.logger = logbook.Logger(type(self).__name__)
         self.tz = "America/New_York"
 
-    def _time_interval_to_multipler_timespan(self, time_interval:str):
+    def _time_interval_to_multiplier_timespan(self, time_interval:str):
         if time_interval.lower() == "1min":
             return 1, "minute"
         elif time_interval.lower() == "5min":
@@ -41,7 +41,7 @@ class PolygonProcessor:
 
     def _fetch_data_for_ticker(self, ticker, start_date, end_date, time_interval):
         self.logger.info(f"Fetching data for {ticker} from {start_date} to {end_date} with interval {time_interval}")
-        multiplier, timespan = self._time_interval_to_multipler_timespan(time_interval)
+        multiplier, timespan = self._time_interval_to_multiplier_timespan(time_interval)
         limit = 50000
         # List Aggregates (Bars)
         aggs = []
