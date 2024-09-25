@@ -17,6 +17,9 @@ from torch import Tensor
 from torch.distributions.normal import Normal
 
 from elegantrl.train.config import Config
+from elegantrl import train_agent
+from elegantrl.train.evaluator import Evaluator
+from elegantrl.agents import *
 
 from finrl.config import INDICATORS
 from finrl.config_tickers import DOW_30_TICKER
@@ -32,7 +35,7 @@ import logbook
 # PPO
 
 
-class ActorPPO(nn.Module):
+class _ActorPPO(nn.Module):
     def __init__(self, dims: [int], state_dim: int, action_dim: int):
         super().__init__()
         self.logger = logbook.Logger(self.__class__.__name__)
@@ -69,7 +72,7 @@ class ActorPPO(nn.Module):
         return action.tanh()
 
 
-class CriticPPO(nn.Module):
+class _CriticPPO(nn.Module):
     def __init__(self, dims: [int], state_dim: int, _action_dim: int):
         super().__init__()
         self.net = build_mlp(dims=[state_dim, *dims, 1])
@@ -86,7 +89,7 @@ def build_mlp(dims: [int]) -> nn.Sequential:  # MLP (MultiLayer Perceptron)
     return nn.Sequential(*net_list)
 
 
-class Config:
+class _Config:
     def __init__(self, agent_class=None, env_class=None, env_args=None):
         self.env_class = env_class  # env = env_class(**env_args)
         self.env_args = env_args  # env = env_class(**env_args)
@@ -193,7 +196,7 @@ def build_env(env_class=None, env_args=None):
     return env
 
 
-class AgentBase:
+class _AgentBase:
     def __init__(
         self,
         net_dims: [int],
@@ -250,7 +253,7 @@ class AgentBase:
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
 
-class AgentPPO(AgentBase):
+class _AgentPPO(AgentBase):
     def __init__(
         self,
         net_dims: [int],
@@ -422,7 +425,7 @@ class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
         return state.reshape(self.state_dim), float(reward), done, info_dict
 
 
-def train_agent(args: Config):
+def _train_agent(args: Config):
     args.init_before_training()
 
     env = build_env(args.env_class, args.env_args)
@@ -481,7 +484,7 @@ def render_agent(
         )
 
 
-class Evaluator:
+class _Evaluator:
     def __init__(
         self, eval_env, eval_per_step: int = 1e4, eval_times: int = 8, cwd: str = "."
     ):

@@ -52,7 +52,7 @@ class PaperTrader:
                 actor = agent.act
                 # load agent
                 try:
-                    cwd = cwd + "/actor.pth"
+                    cwd = cwd + "/act.pth"
                     self.logger.info(f"| load actor from: {cwd}")
                     actor.load_state_dict(
                         torch.load(cwd, map_location=lambda storage, loc: storage)
