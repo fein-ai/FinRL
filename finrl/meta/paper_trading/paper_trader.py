@@ -76,7 +76,7 @@ class PaperTrader:
                 trainer.restore(cwd)
                 self.agent = trainer
                 self.logger.info(f"Restored RLLib agent from checkpoint {cwd}")
-            except Exception as e:
+            except (FileNotFoundError, ValueError) as e:
                 raise ValueError(f"Failed to load RLLib agent: {e}") from e
 
 
