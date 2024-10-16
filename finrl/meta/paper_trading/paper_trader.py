@@ -87,8 +87,12 @@ class PaperTrader:
                 # load agent
                 self.model = PPO.load(cwd)
                 self.logger.info(f"Successfully load model {cwd}")
-            except:
-                raise ValueError("Fail to load agent!")
+            try:
+                # load agent
+                self.model = PPO.load(cwd)
+                self.logger.info(f"Successfully load model {cwd}")
+            except Exception as e:
+                raise ValueError(f"Fail to load agent: {e}") from e
 
         else:
             raise ValueError(
