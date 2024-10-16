@@ -20,6 +20,8 @@ from finrl.meta.data_processors.processor_alpaca import AlpacaProcessor
 from finrl.meta.paper_trading.alpaca import PaperTradingAlpaca
 from finrl.meta.paper_trading.futu import PaperTradingFutu
 from elegantrl.agents import AgentDDPG, AgentTD3, AgentSAC, AgentPPO, AgentA2C
+from stable_baselines3 import PPO, A2C, DDPG, TD3, SAC
+MODELS_SB3 = {"ppo": PPO, "a2c": A2C, "ddpg": DDPG, "td3": TD3, "sac": SAC}
 
 MODELS = {"ddpg": AgentDDPG, "td3": AgentTD3, "sac": AgentSAC, "ppo": AgentPPO, "a2c": AgentA2C}
 
@@ -84,8 +86,11 @@ class PaperTrader:
         # Load agent for Stable Baselines 3
         elif drl_lib == "stable_baselines3":
             try:
-                from stable_baselines3 import PPO  # Adjust the agent class if needed
-                self.model = PPO.load(cwd)
+                agent_class = MODELS_SB3.get(agent)
+                if agent_class is None:
+                    raise ValueError(f"Agent {agent} is not supported for Stable Baselines 3.")
+                
+                self.model = agent_class.load(cwd)
                 self.logger.info(f"Successfully loaded Stable Baselines 3 agent from {cwd}")
             except Exception as e:
                 raise ValueError(f"Failed to load Stable Baselines 3 agent: {e}") from e
