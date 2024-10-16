@@ -8,7 +8,7 @@ import time
 import logbook
 
 import alpaca_trade_api as tradeapi
-import gym
+import gymnasium as gym
 import numpy as np
 import pandas as pd
 import torch
@@ -19,8 +19,11 @@ from datetime import timedelta
 from finrl.meta.data_processors.processor_alpaca import AlpacaProcessor
 from finrl.meta.paper_trading.alpaca import PaperTradingAlpaca
 from finrl.meta.paper_trading.futu import PaperTradingFutu
-from finrl.meta.paper_trading.common import AgentPPO
 
+from elegantrl.agents import *
+
+
+MODELS = {"ddpg": AgentDDPG, "td3": AgentTD3, "sac": AgentSAC, "ppo": AgentPPO, "a2c": AgentA2C}
 
 class PaperTrader:
     def __init__(
@@ -43,62 +46,67 @@ class PaperTrader:
         # load agent
         self.drl_lib = drl_lib
         self.logger = logbook.Logger(self.__class__.__name__)
-        self.logger.info ( 'init paper trading')
+        self.logger.info ( f"ticker_list: {ticker_list} time_interval: {time_interval} drl_lib: {drl_lib} agent: {agent} cwd: {cwd} net_dim: {net_dim} state_dim: {state_dim} action_dim: {action_dim}")
 
-        if agent == "ppo":
-            if drl_lib == "elegantrl":
-                agent_class = AgentPPO
-                agent = agent_class(net_dim, state_dim, action_dim)
-                actor = agent.act
-                # load agent
-                try:
-                    cwd = cwd + "/actor.pth"
-                    self.logger.info(f"| load actor from: {cwd}")
-                    actor.load_state_dict(
-                        torch.load(cwd, map_location=lambda storage, loc: storage)
-                    )
-                    self.act = actor
-                    self.device = agent.device
-                except BaseException:
-                    raise ValueError("Fail to load agent!")
+        if drl_lib == "elegantrl":
+            agent_class = MODELS[agent]
+            agent = agent_class(net_dim, state_dim, action_dim)
+            actor = agent.act
+            # load agent
+            try:
+                # cwd = cwd + "/act.pth"
+                # self.logger.info(f"| load actor from: {cwd}")
+                # self.logger.info ( f"state_dict: {state_dict}")
+                # actor.load_state_dict(
+                #     torch.load(cwd, map_location=lambda storage, loc: storage, weights_only=False)
+                # )
+                # self.act = actor
+                # self.device = agent.device
+                # print ( f"before save_or_load_agent agent: {agent}")
+                agent.save_or_load_agent(cwd=cwd, if_save=False)
+                # print ( f"state_dict: {agent.act.state_dict()}")
+                actor.load_state_dict(agent.act.state_dict())
+                # actor.load_state_dict(agent.act.state_dict())
+                self.logger.info ( f" actor: {actor} agent: {agent} device: {agent.device}")
+                self.act = actor
+                self.device = agent.device
+            except BaseException as e:
+                raise ValueError(f"Fail to load agent: {e}")
 
-            elif drl_lib == "rllib":
-                from ray.rllib.agents import ppo
-                from ray.rllib.agents.ppo.ppo import PPOTrainer
+        elif drl_lib == "rllib":
+            from ray.rllib.agents import ppo
+            from ray.rllib.agents.ppo.ppo import PPOTrainer
 
-                config = ppo.DEFAULT_CONFIG.copy()
-                config["env"] = StockEnvEmpty
-                config["log_level"] = "WARN"
-                config["env_config"] = {
-                    "state_dim": state_dim,
-                    "action_dim": action_dim,
-                }
-                trainer = PPOTrainer(env=StockEnvEmpty, config=config)
+            config = ppo.DEFAULT_CONFIG.copy()
+            config["env"] = StockEnvEmpty
+            config["log_level"] = "WARN"
+            config["env_config"] = {
+                "state_dim": state_dim,
+                "action_dim": action_dim,
+            }
+            trainer = PPOTrainer(env=StockEnvEmpty, config=config)
+            trainer.restore(cwd)
+            try:
                 trainer.restore(cwd)
-                try:
-                    trainer.restore(cwd)
-                    self.agent = trainer
-                    self.logger.info(f"Restoring from checkpoint path {cwd}")
-                except:
-                    raise ValueError("Fail to load agent!")
+                self.agent = trainer
+                self.logger.info(f"Restoring from checkpoint path {cwd}")
+            except:
+                raise ValueError("Fail to load agent!")
 
-            elif drl_lib == "stable_baselines3":
-                from stable_baselines3 import PPO
+        elif drl_lib == "stable_baselines3":
+            from stable_baselines3 import PPO
 
-                try:
-                    # load agent
-                    self.model = PPO.load(cwd)
-                    self.logger.info(f"Successfully load model {cwd}")
-                except:
-                    raise ValueError("Fail to load agent!")
-
-            else:
-                raise ValueError(
-                    "The DRL library input is NOT supported yet. Please check your input."
-                )
+            try:
+                # load agent
+                self.model = PPO.load(cwd)
+                self.logger.info(f"Successfully load model {cwd}")
+            except:
+                raise ValueError("Fail to load agent!")
 
         else:
-            raise ValueError("Agent input is NOT supported yet.")
+            raise ValueError(
+                "The DRL library input is NOT supported yet. Please check your input."
+            )
 
         self.logger.info ( 'start broker init')
         try:
@@ -134,24 +142,7 @@ class PaperTrader:
         #     )
 
         # read trading time interval
-        if time_interval == "1s":
-            self.time_interval = 1
-        elif time_interval == "5s":
-            self.time_interval = 5
-        elif time_interval == "1Min":
-            self.time_interval = 60
-        elif time_interval == "5Min":
-            self.time_interval = 60 * 5
-        elif time_interval == "15Min":
-            self.time_interval = 60 * 15
-        elif time_interval == "1Hour":
-            self.time_interval = 60 * 1
-        elif time_interval == "3Hour":
-            self.time_interval = 60 * 3
-        elif time_interval == "6Hour":
-            self.time_interval = 60 * 6
-        else:
-            raise ValueError("Time interval input is NOT supported yet.")
+        self.time_interval = time_interval
 
         # read trading settings
         self.tech_indicator_list = tech_indicator_list
@@ -170,6 +161,20 @@ class PaperTrader:
         self.stockUniverse = ticker_list
         self.turbulence_bool = 0
         self.equities = []
+
+    def _time_interval_to_sleep(self):
+        if self.time_interval == "1Min":
+            return 60
+        elif self.time_interval == "5Min":
+            return 60 * 5
+        elif self.time_interval == "15Min":
+            return 60 * 15
+        elif self.time_interval == "1H":
+            return 60 * 60
+        elif self.time_interval == "1D":
+            return 60 * 60 * 24
+        else:
+            raise ValueError("The time interval is NOT supported yet. Please check your input.")
 
     def test_latency(self, test_times=10):
         total_time = 0
@@ -200,47 +205,57 @@ class PaperTrader:
                 tzinfo=datetime.timezone.utc
             ).timestamp()
 
-            
-            
-            currTime = clock.timestamp.replace(tzinfo=datetime.timezone.utc).timestamp()
-            self.timeToClose = closingTime - currTime
-            if self.timeToClose < (60 * 2):
-                # Close all positions when 2 minutes til market close.  Any less and it will be in danger of not closing positions in time.
-
-                self.logger.info("Market closing soon.  Closing positions.")
-
-                threads = []
-                positions = self.broker.list_positions()
-                for position in positions:
-                    if position.side == "long":
-                        orderSide = "sell"
-                    else:
-                        orderSide = "buy"
-                    qty = abs(int(float(position.qty)))
-                    respSO = []
-                    tSubmitOrder = threading.Thread(
-                        target=self.submitOrder(qty, position.symbol, orderSide, respSO)
-                    )
-                    tSubmitOrder.start()
-                    threads.append(tSubmitOrder)  # record thread for joining later
-
-                for x in threads:  #  wait for all threads to complete
-                    x.join()
-
-                # Run script again after market close for next trading day.
-                self.logger.info("Sleeping until market close (15 minutes).")
-                time.sleep(60 * 15)
-
+            self.trade()
+            if not isinstance(self.broker.get_account().last_equity, float):
+                last_equity = float(self.broker.get_account().last_equity)
             else:
-                self.trade()
-                if not isinstance(self.broker.get_account().last_equity, float):
-                    last_equity = float(self.broker.get_account().last_equity)
-                else:
-                    last_equity = self.broker.get_account().last_equity
+                last_equity = self.broker.get_account().last_equity
 
-                cur_time = time.time()
-                self.equities.append([cur_time, last_equity])
-                time.sleep(self.time_interval)
+            cur_time = time.time()
+            self.equities.append([cur_time, last_equity])
+            time.sleep(self._time_interval_to_sleep())
+            
+            
+            
+            # currTime = clock.timestamp.replace(tzinfo=datetime.timezone.utc).timestamp()
+            # self.timeToClose = closingTime - currTime
+            # if self.timeToClose < (60 * 2):
+            #     # Close all positions when 2 minutes til market close.  Any less and it will be in danger of not closing positions in time.
+
+            #     self.logger.info("Market closing soon.  Closing positions.")
+
+            #     threads = []
+            #     positions = self.broker.list_positions()
+            #     for position in positions:
+            #         if position.side == "long":
+            #             orderSide = "sell"
+            #         else:
+            #             orderSide = "buy"
+            #         qty = abs(int(float(position.qty)))
+            #         respSO = []
+            #         tSubmitOrder = threading.Thread(
+            #             target=self.submitOrder(qty, position.symbol, orderSide, respSO)
+            #         )
+            #         tSubmitOrder.start()
+            #         threads.append(tSubmitOrder)  # record thread for joining later
+
+            #     for x in threads:  #  wait for all threads to complete
+            #         x.join()
+
+            #     # Run script again after market close for next trading day.
+            #     self.logger.info("Sleeping until market close (15 minutes).")
+            #     time.sleep(60 * 15)
+
+            # else:
+            #     self.trade()
+            #     if not isinstance(self.broker.get_account().last_equity, float):
+            #         last_equity = float(self.broker.get_account().last_equity)
+            #     else:
+            #         last_equity = self.broker.get_account().last_equity
+
+            #     cur_time = time.time()
+            #     self.equities.append([cur_time, last_equity])
+            #     time.sleep(self.time_interval)
 
     def awaitMarketOpen(self):
         isOpen = self.broker.get_clock().is_open
@@ -352,7 +367,7 @@ class PaperTrader:
         self.logger.info ( 'get state')
         price, tech, turbulence = self.broker.fetch_latest_data(
             ticker_list=self.stockUniverse,
-            time_interval="1Min",  # "1Min", "5Min", "15Min", "1H", "1D
+            time_interval=self.time_interval,  # "1Min", "5Min", "15Min", "1H", "1D
             tech_indicator_list=self.tech_indicator_list,
         )
         turbulence_bool = 1 if turbulence >= self.turbulence_thresh else 0
