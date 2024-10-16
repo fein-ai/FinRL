@@ -1,7 +1,21 @@
 {
   "name": "finrl",
   "build": {
-      "dockerfile": "Dockerfile",
-      "context": ".."
+    "dockerfile": "Dockerfile",
+    "context": ".."
+  },
+  "settings": {
+    "python.pythonPath": "/usr/local/bin/python"
+  },
+  "extensions": [
+      "ms-python.python",
+      "ms-azuretools.vscode-docker"
+  ],
+  "postCreateCommand": "pip install -r requirements.txt",
+  "containerEnv": {
+    "PYTHONPATH": "/workspaces/FinRL",
+    "ALPACA_API_KEY": "PKI25OB5Z0ILI48UQ7Q9",
+    "ALPACA_API_SECRET": "o1gwOIpUz0QyD8kR8Dbq8HNxcW7H6q387byefUjp",
+    "ALPACA_API_BASE_URL": "https://paper-api.alpaca.markets"
   }
 }

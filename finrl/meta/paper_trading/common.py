@@ -7,7 +7,7 @@ import os
 import time
 from copy import deepcopy
 
-import gym
+import gymnasium as gym
 import numpy as np
 import numpy.random as rd
 import pandas as pd
@@ -15,6 +15,13 @@ import torch
 import torch.nn as nn
 from torch import Tensor
 from torch.distributions.normal import Normal
+
+from elegantrl.train.config import Config, build_env
+from elegantrl import train_agent
+from elegantrl.train.evaluator import Evaluator
+from elegantrl.train.run import valid_agent
+from elegantrl.agents import *
+from elegantrl.train.evaluator import get_rewards_and_steps
 
 from finrl.config import INDICATORS
 from finrl.config_tickers import DOW_30_TICKER
@@ -30,7 +37,7 @@ import logbook
 # PPO
 
 
-class ActorPPO(nn.Module):
+class _ActorPPO(nn.Module):
     def __init__(self, dims: [int], state_dim: int, action_dim: int):
         super().__init__()
         self.logger = logbook.Logger(self.__class__.__name__)
@@ -67,7 +74,7 @@ class ActorPPO(nn.Module):
         return action.tanh()
 
 
-class CriticPPO(nn.Module):
+class _CriticPPO(nn.Module):
     def __init__(self, dims: [int], state_dim: int, _action_dim: int):
         super().__init__()
         self.net = build_mlp(dims=[state_dim, *dims, 1])
@@ -84,7 +91,7 @@ def build_mlp(dims: [int]) -> nn.Sequential:  # MLP (MultiLayer Perceptron)
     return nn.Sequential(*net_list)
 
 
-class Config:
+class _Config:
     def __init__(self, agent_class=None, env_class=None, env_args=None):
         self.env_class = env_class  # env = env_class(**env_args)
         self.env_args = env_args  # env = env_class(**env_args)
@@ -191,7 +198,7 @@ def build_env(env_class=None, env_args=None):
     return env
 
 
-class AgentBase:
+class _AgentBase:
     def __init__(
         self,
         net_dims: [int],
@@ -248,7 +255,7 @@ class AgentBase:
             tar.data.copy_(cur.data * tau + tar.data * (1.0 - tau))
 
 
-class AgentPPO(AgentBase):
+class _AgentPPO(AgentBase):
     def __init__(
         self,
         net_dims: [int],
@@ -420,7 +427,7 @@ class PendulumEnv(gym.Wrapper):  # a demo of custom gym env
         return state.reshape(self.state_dim), float(reward), done, info_dict
 
 
-def train_agent(args: Config):
+def _train_agent(args: Config):
     args.init_before_training()
 
     env = build_env(args.env_class, args.env_args)
@@ -479,7 +486,7 @@ def render_agent(
         )
 
 
-class Evaluator:
+class _Evaluator:
     def __init__(
         self, eval_env, eval_per_step: int = 1e4, eval_times: int = 8, cwd: str = "."
     ):
@@ -529,7 +536,7 @@ class Evaluator:
         )
 
 
-def get_rewards_and_steps(
+def _get_rewards_and_steps(
     env, actor, if_render: bool = False
 ) -> (float, int):  # cumulative_rewards and episode_steps
     device = next(actor.parameters()).device  # net.parameters() is a Python generator.
@@ -562,7 +569,7 @@ import torch
 
 # from elegantrl.agents import AgentA2C
 
-MODELS = {"ppo": AgentPPO}
+MODELS = {"ppo": AgentPPO, "a2c": AgentA2C, "td3": AgentTD3, "ddpg": AgentDDPG, "sac": AgentSAC}
 OFF_POLICY_MODELS = ["ddpg", "td3", "sac"]
 ON_POLICY_MODELS = ["ppo"]
 # MODEL_KWARGS = {x: config.__dict__[f"{x.upper()}_PARAMS"] for x in MODELS.keys()}
@@ -637,6 +644,29 @@ class DRLAgent:
         model.break_step = total_timesteps
         train_agent(model)
 
+
+    def valid_model( self, model, cwd, total_timesteps=5000):
+        print ('valid_model')
+        model.cwd = cwd
+        model.break_step = total_timesteps
+        env_class = model.env_class
+        env_args = model.env_args
+        net_dims = model.net_dims
+        agent_class = model.agent_class
+        env = build_env(env_class, env_args)
+
+
+        render_times = 8
+
+        agent = agent_class(net_dims, env_args["state_dim"], env_args["action_dim"])
+        agent.save_or_load_agent(cwd=cwd, if_save=False)
+        actor = agent.act
+        actor.load_state_dict(agent.act.state_dict())
+
+        for i in range(render_times):
+            cumulative_reward, episode_step = get_rewards_and_steps(env, actor, if_render=False)
+            print(f"|{i:4}  cumulative_reward {cumulative_reward:9.3f}  episode_step {episode_step:5.0f}")
+
     @staticmethod
     def DRL_prediction(model_name, cwd, net_dimension, environment):
         if model_name not in MODELS:
@@ -649,15 +679,17 @@ class DRLAgent:
         actor = agent.act
         # load agent
         try:
-            cwd = cwd + "/actor.pth"
-            logbook.Logger('DRL_prediction').info(f"| load actor from: {cwd}")
-            actor.load_state_dict(
-                torch.load(cwd, map_location=lambda storage, loc: storage)
-            )
+            # cwd = cwd + "/actor.pth"
+            # logbook.Logger('DRL_prediction').info(f"| load actor from: {cwd}")
+            # actor.load_state_dict(
+            #     torch.load(cwd, map_location=lambda storage, loc: storage)
+            # )
+            agent.save_or_load_agent(cwd=cwd, if_save=False)
+            actor.load_state_dict(agent.act.state_dict())
             act = actor
             device = agent.device
-        except BaseException:
-            raise ValueError("Fail to load agent!")
+        except BaseException as e:
+            raise ValueError(f"Fail to load model due to {e}")
 
         # test on the testing env
         _torch = torch
@@ -813,13 +845,26 @@ def test(
 
     if drl_lib == "elegantrl":
         DRLAgent_erl = DRLAgent
-        episode_total_assets = DRLAgent_erl.DRL_prediction(
-            model_name=model_name,
-            cwd=cwd,
-            net_dimension=net_dimension,
-            environment=env_instance,
+        break_step = kwargs.get("break_step", 1e6)
+        erl_params = kwargs.get("erl_params")
+        agent = DRLAgent_erl(
+            env=env,
+            price_array=price_array,
+            tech_array=tech_array,
+            turbulence_array=turbulence_array,
         )
-        return episode_total_assets
+        model = agent.get_model(model_name, model_kwargs=erl_params)
+        trained_model = agent.valid_model(
+            model=model, cwd=cwd, total_timesteps=break_step
+        )
+        # DRLAgent_erl = DRLAgent
+        # episode_total_assets = DRLAgent_erl.DRL_prediction(
+        #     model_name=model_name,
+        #     cwd=cwd,
+        #     net_dimension=net_dimension,
+        #     environment=env_instance,
+        # )
+        # return episode_total_assets
 
 
 # -----------------------------------------------------------------------------------------------------------------------------------------

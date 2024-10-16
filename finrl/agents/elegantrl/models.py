@@ -117,6 +117,8 @@ class DRLAgent:
     def DRL_prediction(model_name, cwd, net_dimension, environment, env_args):
         import torch
 
+        print ( env_args)
+
         gpu_id = 0  # >=0 means GPU ID, -1 means CPU
         agent_class = MODELS[model_name]
         stock_dim = env_args["price_array"].shape[1]
@@ -132,23 +134,48 @@ class DRLAgent:
             "config": env_args,
         }
 
-        actor_path = f"{cwd}/act.pth"
-        net_dim = [2**7]
+        actor_path = f"{cwd}/actor.pth"
+        # net_dim = [2**7]
+        net_dim = net_dimension
 
         """init"""
         env = environment
         env_class = env
         args = Config(agent_class=agent_class, env_class=env_class, env_args=env_args)
         args.cwd = cwd
-        act = agent_class(
-            net_dim, env.state_dim, env.action_dim, gpu_id=gpu_id, args=args
-        ).act
-        parameters_dict = {}
-        act = torch.load(actor_path)
-        for name, param in act.named_parameters():
-            parameters_dict[name] = torch.tensor(param.detach().cpu().numpy())
+        
 
-        act.load_state_dict(parameters_dict)
+        drl_lib = "elegantrl"
+
+        if model_name == "ppo":
+            if drl_lib == "elegantrl":
+                agent_class = AgentPPO
+                agent = agent_class(net_dim, state_dim, action_dim)
+                actor = agent.act
+                # load agent
+                try:
+                    cwd = cwd + "/actor.pth"
+                    # self.logger.info(f"| load actor from: {cwd}")
+                    actor.load_state_dict(
+                        torch.load(cwd, map_location=lambda storage, loc: storage)
+                    )
+                    # self.act = actor
+                    # self.device = agent.device
+                except BaseException as e:
+                    raise e
+                    # raise ValueError("Fail to load agent!")
+            else:
+                raise ValueError("Fail to load agent!, drl_lib is not supported")
+        else:
+            raise ValueError("Fail to load agent!, model_name is not supported")
+        
+        print ( f"actor: {actor}, actor_path: {actor_path}")
+
+        
+
+        actor.load_state_dict(
+            torch.load(actor_path, map_location=lambda storage, loc: storage)
+        )
 
         if_discrete = env.if_discrete
         device = next(act.parameters()).device

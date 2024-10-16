@@ -23,12 +23,29 @@ class PolygonProcessor:
         self.logger = logbook.Logger(type(self).__name__)
         self.tz = "America/New_York"
 
+    def _time_interval_to_multiplier_timespan(self, time_interval:str):
+        if time_interval.lower() == "1min":
+            return 1, "minute"
+        elif time_interval.lower() == "5min":
+            return 5, "minute"
+        elif time_interval.lower() == "15min":
+            return 15, "minute"
+        elif time_interval.lower() == "1h":
+            return 1, "hour"
+        elif time_interval.lower() == "1d":
+            return 1, "day"
+        else:
+            raise ValueError("Invalid time interval")
+        
+        
+
     def _fetch_data_for_ticker(self, ticker, start_date, end_date, time_interval):
-        self.logger.info(f"Fetching data for {ticker}")
+        self.logger.info(f"Fetching data for {ticker} from {start_date} to {end_date} with interval {time_interval}")
+        multiplier, timespan = self._time_interval_to_multiplier_timespan(time_interval)
         limit = 50000
         # List Aggregates (Bars)
         aggs = []
-        for a in self.client.list_aggs(ticker=ticker, multiplier=1, timespan="minute", from_=start_date, to=end_date, limit=limit):
+        for a in self.client.list_aggs(ticker=ticker, multiplier=multiplier, timespan=timespan, from_=start_date, to=end_date, limit=limit):
             aggs.append(a) 
 
         all_data = pd.DataFrame( aggs)
@@ -36,6 +53,7 @@ class PolygonProcessor:
         all_data['timestamp'] = pd.to_datetime( all_data['timestamp'], unit='ms').dt.tz_localize('UTC').dt.tz_convert( self.tz)
         all_data['tic'] = ticker
         all_data['volume'] = all_data['volume'].astype(pd.Int64Dtype())
+
         
         # self.logger.info(f"Data fetched for {ticker}")
         return DownloadDataSchema.validate(all_data)
@@ -79,7 +97,6 @@ class PolygonProcessor:
             data_df = data_df.between_time("09:30", "15:59")
 
 
-        
         # Reset the index and rename the columns for consistency
         data_df = data_df.reset_index().rename(
             columns={"index": "timestamp", "symbol": "tic"}
@@ -111,21 +128,21 @@ class PolygonProcessor:
 
         # produce full timestamp index
         self.logger.info("produce full timestamp index")
-        times = []
-        for day in trading_days:
-            
-            current_time = pd.Timestamp(day + " 09:30:00").tz_localize( self.tz)
-            for i in range(390):
-                times.append(current_time)
-                current_time += pd.Timedelta(minutes=1)
+        # times = []
+        # for day in trading_days:
+        #     current_time = pd.Timestamp(day + " 09:30:00").tz_localize( self.tz)
+        #     for i in range(390):
+        #         times.append(current_time)
+        #         current_time += pd.Timedelta(minutes=1)
 
+        
         self.logger.info("Start processing tickers")
-
+        
         future_results = []
         for tic in tic_list:
-            result = self.clean_individual_ticker((tic, df.copy(), times))
+            result = self.clean_individual_ticker((tic, df.copy()))
             future_results.append(result)
-
+        
         self.logger.info("ticker list complete")
 
         self.logger.info("Start concat and rename")
@@ -151,13 +168,14 @@ class PolygonProcessor:
         ],
     ):
         self.logger.info("Started adding Indicators")
-
+        
         # Store the original data type of the 'timestamp' column
         original_timestamp_dtype = df["timestamp"].dtype
 
         # Convert df to stock data format just once
         stock = Sdf.retype(df)
         unique_ticker = stock.tic.unique()
+        
 
         # Convert timestamp to a consistent datatype (timezone-naive) before entering the loop
         df["timestamp"] = df["timestamp"].dt.tz_convert(None)
@@ -182,7 +200,7 @@ class PolygonProcessor:
 
             # Concatenate all intermediate dataframes at once
             indicator_df = pd.concat(indicator_dfs, ignore_index=True)
-
+            
             # Merge the indicator data frame
             df = df.merge(
                 indicator_df[["tic", "date", indicator]],
@@ -200,7 +218,10 @@ class PolygonProcessor:
         else:
             df["timestamp"] = df["timestamp"].astype(original_timestamp_dtype)
 
+        df[tech_indicator_list] = df[tech_indicator_list].astype(float).round( 5)
+
         self.logger.info("Finished adding Indicators")
+
         return df
 
 
@@ -328,17 +349,17 @@ class PolygonProcessor:
 
     @staticmethod
     def clean_individual_ticker(args):
-        tic, df, times = args
-        tmp_df = pd.DataFrame(index=times)
-        tic_df = df[df.tic == tic].set_index("timestamp")
+        tic, df = args
+        df.set_index("timestamp", inplace=True)
+        tmp_df = df
 
         # Step 1: Merging dataframes to avoid loop
-        tmp_df = tmp_df.merge(
-            tic_df[["open", "high", "low", "close", "volume"]],
-            left_index=True,
-            right_index=True,
-            how="left",
-        )
+        # tmp_df = tmp_df.merge(
+        #     tic_df[["open", "high", "low", "close", "volume"]],
+        #     left_index=True,
+        #     right_index=True,
+        #     how="left",
+        # )
 
         # Step 2: Handling NaN values efficiently
         if pd.isna(tmp_df.iloc[0]["close"]):
@@ -364,8 +385,6 @@ class PolygonProcessor:
         # tmp_df.loc[tmp_df.index.time == pd.Timestamp("09:30:00").time(), 'volume'] = 0.0
 
         # Step 3: Data type conversion
-        tmp_df = tmp_df.astype(float)
-
         tmp_df["tic"] = tic
 
         return tmp_df
