@@ -52,20 +52,9 @@ class PaperTrader:
             actor = agent.act
             # load agent
             try:
-                # cwd = cwd + "/act.pth"
-                # self.logger.info(f"| load actor from: {cwd}")
-                # self.logger.info ( f"state_dict: {state_dict}")
-                # actor.load_state_dict(
-                #     torch.load(cwd, map_location=lambda storage, loc: storage, weights_only=False)
-                # )
-                # self.act = actor
-                # self.device = agent.device
-                # print ( f"before save_or_load_agent agent: {agent}")
                 agent.save_or_load_agent(cwd=cwd, if_save=False)
-                # print ( f"state_dict: {agent.act.state_dict()}")
                 actor.load_state_dict(agent.act.state_dict())
-                # actor.load_state_dict(agent.act.state_dict())
-                self.logger.info ( f" actor: {actor} agent: {agent} device: {agent.device}")
+                self.logger.info(f"Loaded agent: {agent} on device: {agent.device}")
                 self.act = actor
                 self.device = agent.device
             except BaseException as e:
