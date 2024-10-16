@@ -58,9 +58,8 @@ class PaperTrader:
                 self.act = agent_instance.act
                 self.device = agent_instance.device
                 self.logger.info(f"Loaded Elegantrl agent: {agent} on device: {self.device}")
-            except Exception as e:
+            except (FileNotFoundError, RuntimeError) as e:
                 raise ValueError(f"Failed to load Elegantrl agent: {e}") from e
-
         # Load agent for RLLib
         elif drl_lib == "rllib":
             try:
