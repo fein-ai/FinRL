@@ -69,7 +69,7 @@ class PaperTrader:
                 self.act = actor
                 self.device = agent.device
             except BaseException as e:
-                raise ValueError(f"Fail to load agent: {e}")
+                raise ValueError(f"Fail to load agent: {e}") from e
 
         elif drl_lib == "rllib":
             from ray.rllib.agents import ppo
