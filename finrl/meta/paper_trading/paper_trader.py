@@ -91,7 +91,7 @@ class PaperTrader:
                 
                 self.model = agent_class.load(cwd)
                 self.logger.info(f"Successfully loaded Stable Baselines 3 agent from {cwd}")
-            except Exception as e:
+            except (FileNotFoundError, ValueError) as e:
                 raise ValueError(f"Failed to load Stable Baselines 3 agent: {e}") from e
 
 
