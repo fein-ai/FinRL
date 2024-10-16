@@ -47,15 +47,15 @@ class PaperTrader:
         self.logger.info ( f"ticker_list: {ticker_list} time_interval: {time_interval} drl_lib: {drl_lib} agent: {agent} cwd: {cwd} net_dim: {net_dim} state_dim: {state_dim} action_dim: {action_dim}")
 
         if drl_lib == "elegantrl":
-            agent_class = MODELS.get(agent_name)
+            agent_class = MODELS.get(agent)
             if agent_class is None:
-                raise ValueError(f"Agent {agent_name} is not supported for Elegantrl.")
+                raise ValueError(f"Agent {agent} is not supported for Elegantrl.")
             agent = agent_class(net_dim, state_dim, action_dim)
             try:
                 agent.save_or_load_agent(cwd=cwd, if_save=False)
                 self.act = agent.act
                 self.device = agent.device
-                self.logger.info(f"Loaded Elegantrl agent: {agent_name} on device: {self.device}")
+                self.logger.info(f"Loaded Elegantrl agent: {agent} on device: {self.device}")
             except Exception as e:
                 raise ValueError(f"Failed to load Elegantrl agent: {e}") from e
 
