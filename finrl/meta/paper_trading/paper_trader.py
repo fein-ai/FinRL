@@ -93,7 +93,7 @@ class PaperTrader:
 
         else:
             raise ValueError(
-                "The DRL library input is NOT supported yet. Please check your input."
+                f"The DRL library '{drl_lib}' is not supported. Please check your input."
             )
 
         self.logger.info ( 'start broker init')
