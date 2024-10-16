@@ -19,9 +19,9 @@ from datetime import timedelta
 from finrl.meta.data_processors.processor_alpaca import AlpacaProcessor
 from finrl.meta.paper_trading.alpaca import PaperTradingAlpaca
 from finrl.meta.paper_trading.futu import PaperTradingFutu
+from elegantrl.agents import AgentDDPG, AgentTD3, AgentSAC, AgentPPO, AgentA2C
 
-from elegantrl.agents import *
-
+MODELS = {"ddpg": AgentDDPG, "td3": AgentTD3, "sac": AgentSAC, "ppo": AgentPPO, "a2c": AgentA2C}
 
 class PaperTrader:
     def __init__(
@@ -46,35 +46,26 @@ class PaperTrader:
         self.logger = logbook.Logger(self.__class__.__name__)
         self.logger.info ( f"ticker_list: {ticker_list} time_interval: {time_interval} drl_lib: {drl_lib} agent: {agent} cwd: {cwd} net_dim: {net_dim} state_dim: {state_dim} action_dim: {action_dim}")
 
-        if agent == "ppo":
-            if drl_lib == "elegantrl":
-                agent_class = AgentPPO
-                agent = agent_class(net_dim, state_dim, action_dim)
-                actor = agent.act
-                # load agent
-                try:
-                    # cwd = cwd + "/act.pth"
-                    # self.logger.info(f"| load actor from: {cwd}")
-                    # self.logger.info ( f"state_dict: {state_dict}")
-                    # actor.load_state_dict(
-                    #     torch.load(cwd, map_location=lambda storage, loc: storage, weights_only=False)
-                    # )
-                    # self.act = actor
-                    # self.device = agent.device
-                    # print ( f"before save_or_load_agent agent: {agent}")
-                    agent.save_or_load_agent(cwd=cwd, if_save=False)
-                    # print ( f"state_dict: {agent.act.state_dict()}")
-                    actor.load_state_dict(agent.act.state_dict())
-                    # actor.load_state_dict(agent.act.state_dict())
-                    self.logger.info ( f" actor: {actor} agent: {agent} device: {agent.device}")
-                    self.act = actor
-                    self.device = agent.device
-                except BaseException as e:
-                    raise ValueError(f"Fail to load agent: {e}")
 
-            elif drl_lib == "rllib":
+        # Load agent for Elegantrl
+        if drl_lib == "elegantrl":
+            agent_class = MODELS.get(agent)
+            if agent_class is None:
+                raise ValueError(f"Agent {agent} is not supported for Elegantrl.")
+            agent_instance = agent_class(net_dim, state_dim, action_dim)
+            try:
+                agent_instance.save_or_load_agent(cwd=cwd, if_save=False)
+                self.act = agent_instance.act
+                self.device = agent_instance.device
+                self.logger.info(f"Loaded Elegantrl agent: {agent} on device: {self.device}")
+            except Exception as e:
+                raise ValueError(f"Failed to load Elegantrl agent: {e}") from e
+
+        # Load agent for RLLib
+        elif drl_lib == "rllib":
+            try:
                 from ray.rllib.agents import ppo
-                from ray.rllib.agents.ppo.ppo import PPOTrainer
+                from ray.rllib.agents.ppo import PPOTrainer
 
                 config = ppo.DEFAULT_CONFIG.copy()
                 config["env"] = StockEnvEmpty
@@ -85,30 +76,25 @@ class PaperTrader:
                 }
                 trainer = PPOTrainer(env=StockEnvEmpty, config=config)
                 trainer.restore(cwd)
-                try:
-                    trainer.restore(cwd)
-                    self.agent = trainer
-                    self.logger.info(f"Restoring from checkpoint path {cwd}")
-                except:
-                    raise ValueError("Fail to load agent!")
+                self.agent = trainer
+                self.logger.info(f"Restored RLLib agent from checkpoint {cwd}")
+            except (FileNotFoundError, ValueError) as e:
+                raise ValueError(f"Failed to load RLLib agent: {e}") from e
 
-            elif drl_lib == "stable_baselines3":
-                from stable_baselines3 import PPO
+        # Load agent for Stable Baselines 3
+        elif drl_lib == "stable_baselines3":
+            try:
+                from stable_baselines3 import PPO  # Adjust the agent class if needed
+                self.model = PPO.load(cwd)
+                self.logger.info(f"Successfully loaded Stable Baselines 3 agent from {cwd}")
+            except Exception as e:
+                raise ValueError(f"Failed to load Stable Baselines 3 agent: {e}") from e
 
-                try:
-                    # load agent
-                    self.model = PPO.load(cwd)
-                    self.logger.info(f"Successfully load model {cwd}")
-                except:
-                    raise ValueError("Fail to load agent!")
-
-            else:
-                raise ValueError(
-                    "The DRL library input is NOT supported yet. Please check your input."
-                )
 
         else:
-            raise ValueError("Agent input is NOT supported yet.")
+            raise ValueError(
+                "The DRL library input is NOT supported yet. Please check your input."
+            )
 
         self.logger.info ( 'start broker init')
         try:
