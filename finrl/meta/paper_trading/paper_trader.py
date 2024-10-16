@@ -47,54 +47,47 @@ class PaperTrader:
         self.logger.info ( f"ticker_list: {ticker_list} time_interval: {time_interval} drl_lib: {drl_lib} agent: {agent} cwd: {cwd} net_dim: {net_dim} state_dim: {state_dim} action_dim: {action_dim}")
 
         if drl_lib == "elegantrl":
-            agent_class = MODELS[agent]
+            agent_class = MODELS.get(agent_name)
+            if agent_class is None:
+                raise ValueError(f"Agent {agent_name} is not supported for Elegantrl.")
             agent = agent_class(net_dim, state_dim, action_dim)
-            actor = agent.act
-            # load agent
             try:
                 agent.save_or_load_agent(cwd=cwd, if_save=False)
-                actor.load_state_dict(agent.act.state_dict())
-                self.logger.info(f"Loaded agent: {agent} on device: {agent.device}")
-                self.act = actor
+                self.act = agent.act
                 self.device = agent.device
-            except BaseException as e:
-                raise ValueError(f"Fail to load agent: {e}") from e
+                self.logger.info(f"Loaded Elegantrl agent: {agent_name} on device: {self.device}")
+            except Exception as e:
+                raise ValueError(f"Failed to load Elegantrl agent: {e}") from e
+
 
         elif drl_lib == "rllib":
-            from ray.rllib.agents import ppo
-            from ray.rllib.agents.ppo.ppo import PPOTrainer
-
-            config = ppo.DEFAULT_CONFIG.copy()
-            config["env"] = StockEnvEmpty
-            config["log_level"] = "WARN"
-            config["env_config"] = {
-                "state_dim": state_dim,
-                "action_dim": action_dim,
-            }
-            trainer = PPOTrainer(env=StockEnvEmpty, config=config)
-            trainer.restore(cwd)
             try:
+                from ray.rllib.agents import ppo
+                from ray.rllib.agents.ppo import PPOTrainer
+
+                config = ppo.DEFAULT_CONFIG.copy()
+                config["env"] = StockEnvEmpty
+                config["log_level"] = "WARN"
+                config["env_config"] = {
+                    "state_dim": state_dim,
+                    "action_dim": action_dim,
+                }
+                trainer = PPOTrainer(env=StockEnvEmpty, config=config)
                 trainer.restore(cwd)
                 self.agent = trainer
-                self.logger.info(f"Restoring from checkpoint path {cwd}")
-            try:
-                trainer.restore(cwd)
+                self.logger.info(f"Restored RLLib agent from checkpoint {cwd}")
             except Exception as e:
-                raise ValueError(f"Fail to load agent: {e}") from e
+                raise ValueError(f"Failed to load RLLib agent: {e}") from e
+
 
         elif drl_lib == "stable_baselines3":
-            from stable_baselines3 import PPO
-
             try:
-                # load agent
+                from stable_baselines3 import PPO  # Adjust the agent class if needed
                 self.model = PPO.load(cwd)
-                self.logger.info(f"Successfully load model {cwd}")
-            try:
-                # load agent
-                self.model = PPO.load(cwd)
-                self.logger.info(f"Successfully load model {cwd}")
+                self.logger.info(f"Successfully loaded Stable Baselines 3 agent from {cwd}")
             except Exception as e:
-                raise ValueError(f"Fail to load agent: {e}") from e
+                raise ValueError(f"Failed to load Stable Baselines 3 agent: {e}") from e
+
 
         else:
             raise ValueError(
