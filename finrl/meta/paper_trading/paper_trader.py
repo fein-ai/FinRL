@@ -57,7 +57,7 @@ class PaperTrader:
                 agent_instance.save_or_load_agent(cwd=cwd, if_save=False)
                 self.act = agent_instance.act
                 self.device = agent_instance.device
-                self.logger.info(f"Loaded Elegantrl agent: {agent_instance} on device: {self.device}")
+                self.logger.info(f"Loaded Elegantrl agent: {agent} on device: {self.device}")
             except Exception as e:
                 raise ValueError(f"Failed to load Elegantrl agent: {e}") from e
 
